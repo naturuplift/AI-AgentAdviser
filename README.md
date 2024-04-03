@@ -1,2 +1,1 @@
-# AI-assisted Book Search Advisor
-# AI-AgentAdviser
+# Tech Stack AI-Agent Adviser
