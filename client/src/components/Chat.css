@@ -2,9 +2,9 @@
 .conversation-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 100px); /* Assuming the input bar is around 50px in height */
+  height: calc(100vh - 100px);
   overflow-y: auto;
-  padding-bottom: 50px; /* Space for input bar */
+  padding-bottom: 60px;
 }
 
 .ai-message {
@@ -37,7 +37,7 @@
 }
 
 .chatbot-input-container input {
-  width: calc(100% - 100px); /* Adjust width to leave room for the Send button */
+  width: calc(100% - 100px);
   padding: 10px;
   margin-right: 10px;
   border: 1px solid #ddd;
@@ -51,4 +51,27 @@
   border-radius: 20px;
   color: white;
   cursor: pointer;
+}
+
+.chatbot-input-container button:hover {
+  background-color: #218838; /* Slightly darker green */
+}
+
+.chatbot-input-container button:focus {
+  outline: none; /* Removes outline and add a custom style if needed */
+  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.5); /* Adds a green glow */
+}
+
+.ai-message, .user-message {
+  word-wrap: break-word;
+}
+
+.ai-message li, .user-message li {
+  margin-bottom: 5px; /* Adjust list item spacing */
+}
+
+.ai-message code, .user-message code {
+  background-color: rgba(27,31,35,.05); /* Light background for code */
+  padding: 0.2em 0.4em; /* Padding around code */
+  border-radius: 3px; /* Rounded corners for code blocks */
 }

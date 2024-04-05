@@ -7,55 +7,93 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// system prompt for tech stack advice
-const systemPrompt = `
-You are a knowledgeable software engineer with expertise in recommending technology stacks for various projects, formatted in Markdown. When presented with a project description, you analyze the requirements and suggest a suitable tech stack that includes front-end technologies, back-end frameworks, databases, and any additional tools or services that might be beneficial. Ensure the recommendation includes Markdown formatting for headers, lists, and any emphasis for readability.
+// Define a function to create an assistant
+// Create an Assistant by defining its custom instructions and picking a model.
+// If helpful, add files and enable tools like Code Interpreter, Retrieval, and
+// Function calling.
+// https://platform.openai.com/docs/api-reference/assistants/createAssistant
+async function createAssistant() {
+  const assistant = await openai.beta.assistants.create({
+    name: "Tech Stack Advisor",
+    instructions: "You are an AI that recommends technology stacks for software projects based on a description.",
+    tools: [{ type: "code_interpreter" }],
+    model: "gpt-3.5-turbo"
+  });
+  console.log(`The result of 'openai.beta.assistants.create' is:`) //TODO: comment after testing
+  console.log(assistant) //TODO: comment after testing
+  return assistant;
+}
 
-Example session:
-Question: I'm planning to build a social media platform for pet lovers that allows them to share photos, schedule meetups, and discuss in forums. What tech stack would you recommend in Markdown format?
+// Define a function to add a user's message to a thread
+// Add Messages to the Thread as the user asks questions.
+// https://platform.openai.com/docs/api-reference/messages
+async function addMessageToThread(threadId, userContent) {
+  const message = await openai.beta.threads.messages.create(
+    threadId,
+    {
+      role: "user", 
+      content: userContent
+    }
+  );
+  console.log(`The result of 'openai.beta.threads.messages.create' is:`) //TODO: comment after testing
+  console.log(message) //TODO: comment after testing
+  return message;
+}
 
-Answer: For a social media platform focusing on photo sharing, meetups, and forums for pet lovers, I recommend using **React** for the front end for its component-based architecture and ease of integration with RESTful services. For the backend, consider using **Node.js with Express** for efficient request handling and scalability. **MongoDB** would be a suitable choice for the database, given its flexibility with document-based data, which can easily accommodate user profiles, photos, and forum posts. Additionally, consider incorporating **AWS S3** for photo storage and retrieval, and **Socket.IO** for real-time chat functionalities in forums.
-
-Please format your recommendations in Markdown, including the use of bold for technology names, bullet points for lists, and appropriate headings.
-`;
+// Define a function to run the assistant on the thread and get a response
+async function createAndStreamRun(threadId, assistantId) {
+  const run = await openai.beta.threads.runs.stream(
+    threadId,
+    {
+      assistant_id: assistantId
+    })
+    .on('textCreated', (text) => process.stdout.write('\nassistant > '))
+    .on('textDelta', (textDelta, snapshot) => process.stdout.write(textDelta.value))
+    .on('toolCallCreated', (toolCall) => process.stdout.write(`\nassistant > ${toolCall.type}\n\n`))
+    .on('toolCallDelta', (toolCallDelta, snapshot) => {
+      if (toolCallDelta.type === 'code_interpreter') {
+        if (toolCallDelta.code_interpreter.input) {
+          process.stdout.write(toolCallDelta.code_interpreter.input);
+        }
+        if (toolCallDelta.code_interpreter.outputs) {
+          process.stdout.write("\noutput >\n");
+          toolCallDelta.code_interpreter.outputs.forEach(output => {
+            if (output.type === "logs") {
+              process.stdout.write(`\n${output.logs}\n`);
+            }
+          });
+        } 
+      }
+    });
+    console.log(`The result of 'openai.beta.threads.runs.stream' is:`) //TODO: comment after testing
+    console.log(run); //TODO: comment after testing
+}
 
 exports.getTechStackRecommendation = async (req, res) => {
   try {
-    // Extract project description from request body
     const { projectDescription } = req.body;
-    // console.log(projectDescription)
-    // User prompt including project details
-    // const userPrompt = `Project Title: ${title}\nDescription: ${description}\nTech Needs: ${techNeeds}\nWhat tech stack would you recommend?`;
-    const userPrompt = `Project Description: ${projectDescription}\nWhat tech stack would you recommend?`;
-    // console.log(userPrompt)
-    // Call OpenAI API with system and user prompts
-    const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-            {
-                role: "system",
-                content: systemPrompt,
-            },
-            {
-                role: "user",
-                content: userPrompt,
-            },
-        ],
-        max_tokens: 1000,
-    });
+    console.log(`Project description: ${projectDescription}`) //TODO: comment after testing
+    
+    // Create the assistant
+    const assistant = await createAssistant();
 
-    // Check for HTTP Status Code
-    // console.log(`HTTP Status Code: ${response.status}`);
+    // Create a new thread
+    // Create a Thread when a user starts a conversation.
+    // https://platform.openai.com/docs/api-reference/threads
+    const thread = await openai.beta.threads.create();
+    console.log(`Create assistant thread: ${thread.id}`) //TODO: comment after testing
 
-    // log the entire response
-    // console.log(`Response from OpenAI: ${JSON.stringify(response)}`);
+    // Add the user's message to the thread
+    await addMessageToThread(thread.id, projectDescription);
 
-    console.log(response.choices[0].message.content.trim())
-    // Extracting and sending back the AI's recommendation
-    const recommendation = response.choices[0].message.content.trim();
-    res.json({ recommendation });
+    // Run the Assistant on the Thread to generate a response by calling the
+    // model and the tools. https://platform.openai.com/docs/api-reference/runs
+    const Recommendation = await createAndStreamRun(thread.id, assistant.id);
+
+    // Send the recommendation back to the client
+    res.json({ recommendation:Recommendation});
   } catch (error) {
-    console.error(`Error fetching tech stack recommendation: ${error}`);
+    console.error(`Error fetching recommendation: ${error}`);
     res.status(500).send('Failed to provide tech stack advice due to an internal error.');
   }
 };

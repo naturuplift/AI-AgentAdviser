@@ -9,14 +9,34 @@ import SearchBooks from './pages/ChatConversation';
 const App = () => {
   const [conversation, setConversation] = useState([{ text: 'Hi there! How may I help you?', role: 'assistant' }]);
 
-  const sendMessage = useCallback((newMessage) => {
+  // sendMessage will now make an API call to your server, which will then interact with OpenAI
+  const sendMessage = useCallback(async (userMessage) => {
     // Add the new user message to the conversation
-    setConversation((prevMessages) => [...prevMessages, { text: newMessage, role: 'user' }]);
-    
-    // Here you would typically make an API call to get the response from the OpenAI agent
-    // and then add the OpenAI agent's response to the conversation
-    // For example purposes, let's just echo the user's message
-    setConversation((prevMessages) => [...prevMessages, { text: `You said: ${newMessage}`, role: 'assistant' }]);
+    setConversation(prevMessages => [...prevMessages, { text: userMessage, role: 'user' }]);
+
+    try {
+      const response = await fetch('/api/openai/tech-stack', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('id_token')}`,
+        },
+        body: JSON.stringify({ projectDescription: userMessage }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const { recommendation } = await response.json();
+      console.log(recommendation); // Check the structure of the received data
+      // Add the AI response to the conversation
+      setConversation(prevMessages => [...prevMessages, { text: recommendation, role: 'assistant' }]);
+    } catch (error) {
+      console.error("Failed to get recommendation:", error);
+      // Add an error response to the conversation
+      setConversation(prevMessages => [...prevMessages, { text: 'Failed to get recommendation. Please try again.', role: 'assistant' }]);
+    }
   }, []);
 
   return (
